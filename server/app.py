@@ -18,26 +18,42 @@ class ClearSession(Resource):
 class Signup(Resource):
     
     def post(self):
-        json = request.get_json()
-        user = User(
-            username=json['username'],
-            password_hash=json['password']
-        )
-        db.session.add(user)
+        new_user = User(username= request.get_json()['username'])
+        new_user.password_hash = request.get_json()['password']
+        db.session.add(new_user)
         db.session.commit()
-        return user.to_dict(), 201
+        session['user_id'] = new_user.id
+        return new_user.to_dict(), 201
+api.add_resource(Signup, '/signup', endpoint='signup')
 
 class CheckSession(Resource):
-    pass
+    def get(self):
+        if session.get('user_id'):
+            user = User.query.filter(User.id == session['user_id']).first()
+            return user.to_dict(), 200
+        else:
+            return {}, 204
+api.add_resource(CheckSession, '/check_session', endpoint='check_session')
 
 class Login(Resource):
-    pass
+    def post(self):
+        user = User.query.filter(User.username == request.get_json()['username']).first()
+        if user.authenticate(request.get_json()['password']):
+            session['user_id'] = user.id
+            return user.to_dict(), 200
+        else:
+            return {}, 401
+api.add_resource(Login, '/login', endpoint='login')
 
 class Logout(Resource):
-    pass
+    def delete(self):
+        session['user_id'] = None
+        return {}, 200
+api.add_resource(Logout, '/logout', endpoint='clear')
 
-api.add_resource(ClearSession, '/clear', endpoint='clear')
-api.add_resource(Signup, '/signup', endpoint='signup')
+
+#api.add_resource(ClearSession, '/clear', endpoint='clear')
+
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
